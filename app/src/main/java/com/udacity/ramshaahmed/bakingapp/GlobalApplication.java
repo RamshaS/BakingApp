@@ -30,7 +30,6 @@ public class GlobalApplication extends Application {
 
     public GlobalApplication() {
 
-        // The IdlingResource will be null in production.
         if (BuildConfig.DEBUG) {
             initializeIdlingResource();
         }

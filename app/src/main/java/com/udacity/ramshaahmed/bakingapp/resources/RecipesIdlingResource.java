@@ -1,12 +1,15 @@
 package com.udacity.ramshaahmed.bakingapp.resources;
 
+import android.support.annotation.Nullable;
 import android.support.test.espresso.IdlingResource;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RecipesIdlingResource implements IdlingResource {
 
+    @Nullable
     private volatile ResourceCallback callback;
+
     private AtomicBoolean isIdleNow = new AtomicBoolean(true);
     @Override
     public String getName() {
@@ -24,7 +27,7 @@ public class RecipesIdlingResource implements IdlingResource {
     }
 
     public void setIdleState(boolean idleState){
-    //    isIdleNow.set(isIdleNow);
+        isIdleNow.set(idleState);
         if (idleState && callback != null){
             callback.onTransitionToIdle();
         }

@@ -1,6 +1,6 @@
 package com.udacity.ramshaahmed.bakingapp.fragments;
 
-import android.app.Fragment;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -9,18 +9,29 @@ import android.net.ConnectivityManager;
 import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
+import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.app.AlertController;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.GridLayoutManager;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
 import com.orhanobut.logger.Logger;
 import com.udacity.ramshaahmed.bakingapp.GlobalApplication;
+import com.udacity.ramshaahmed.bakingapp.Listners;
 import com.udacity.ramshaahmed.bakingapp.R;
+import com.udacity.ramshaahmed.bakingapp.adapters.RecipesAdapter;
+import com.udacity.ramshaahmed.bakingapp.api.RecipesApiCallback;
+import com.udacity.ramshaahmed.bakingapp.api.RecipesApiManager;
 import com.udacity.ramshaahmed.bakingapp.models.Recipe;
+import com.udacity.ramshaahmed.bakingapp.utils.Preferences;
+import com.udacity.ramshaahmed.bakingapp.utils.SpacingItemDecoration;
+import com.udacity.ramshaahmed.bakingapp.utils.utils;
+import com.udacity.ramshaahmed.bakingapp.widget.AppWidgetService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -140,10 +151,57 @@ public class RecipesFragment extends Fragment {
     }
 
     private void setupRecyclerView() {
+        mRecipesRecyclerView.setVisibility(View.GONE);
+        mRecipesRecyclerView.setHasFixedSize(true);
+
+        boolean twoPaneMode = getResources().getBoolean(R.bool.twoPaneMode);
+        if (twoPaneMode) {
+            mRecipesRecyclerView.setLayoutManager(new GridLayoutManager(getActivity().getApplicationContext(), 3));
+        } else {
+            mRecipesRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity().getApplicationContext(), LinearLayoutManager.VERTICAL, false));
+        }
+
+        mRecipesRecyclerView.addItemDecoration(new SpacingItemDecoration((int) getResources().getDimension(R.dimen.margin_medium)));
+        mRecipesRecyclerView.addOnItemTouchListener(new RecyclerView.SimpleOnItemTouchListener());
         }
 
     private void loadRecipes() {
+        // Set SwipeRefreshLayout that refreshing in case that loadRecipes get called by the networkChangeReceiver
+        if (utils.isNetworkAvailable(getActivity().getApplicationContext())) {
+            mPullToRefresh.setRefreshing(true);
 
+            RecipesApiManager.getInstance().getRecipes(new RecipesApiCallback<List<Recipe>>() {
+                @Override
+                public void onResponse(final List<Recipe> result) {
+                    if (result != null) {
+                        mRecipes = result;
+                        mRecipesRecyclerView.setAdapter(new RecipesAdapter(getActivity().getApplicationContext(), mRecipes, new Listners.OnItemClickListener() {
+                            @Override
+                            public void onItemClick(int position) {
+                                mListener.onRecipeSelected(mRecipes.get(position));
+                            }
+                        }));
+                        // Set the default recipe for the widget
+                        if (Preferences.loadRecipe(getActivity().getApplicationContext()) == null) {
+                            AppWidgetService.updateWidget(getActivity(), mRecipes.get(0));
+                        }
+
+                    } else {
+                        utils.makeSnackBar(getActivity(), getView(), getString(R.string.failed_to_load_data), true);
+                    }
+
+                    dataLoadedTakeCareLayout();
+                }
+
+                @Override
+                public void onCancel() {
+                    dataLoadedTakeCareLayout();
+                }
+
+            });
+        } else {
+            utils.makeSnackBar(getActivity(), getView(), getString(R.string.no_internet), true);
+        }
     }
 
 
@@ -154,7 +212,7 @@ public class RecipesFragment extends Fragment {
         boolean loaded = mRecipes != null && mRecipes.size() > 0;
         mPullToRefresh.setRefreshing(false);
 
-       // mRecipesRecyclerView.setVisibility(loaded ? View.VISIBLE : View.GONE);
+        mRecipesRecyclerView.setVisibility(loaded ? View.VISIBLE : View.GONE);
         mNoDataContainer.setVisibility(loaded ? View.GONE : View.VISIBLE);
 
         globalApplication.setIdleState(true);
